@@ -1,6 +1,6 @@
 import logging
 from argparse import ArgumentParser
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import requests
@@ -26,6 +26,7 @@ class Crsz:
         chip_numbers = self._get_chip_numbers(file_name)
         date_from = vaccination_date.strftime(self._DATE_FORMAT)
         date_to = vaccination_date.replace(year=vaccination_date.year + 1).strftime(self._DATE_FORMAT)
+        valid_from = (vaccination_date + timedelta(days=21)).strftime(self._DATE_FORMAT)
         user_id = self._username[2:]
 
         for chip_number in chip_numbers:
@@ -36,11 +37,11 @@ class Crsz:
                     print(f'Animal {chip_number} not found')
                     continue
 
-                self._vaccinate(animal_id, date_from, date_to, user_id, manufacturer, vaccine_name, bach_number)
+                self._vaccinate(animal_id, date_from, date_to, valid_from, user_id, manufacturer, vaccine_name, bach_number)
             except Exception:
                 logger.exception(f'\nError on vaccinate {chip_number}')
 
-            print('.')
+            print('.', end='')
 
     @staticmethod
     def _get_chip_numbers(file_name: str) -> list[str]:
@@ -48,12 +49,12 @@ class Crsz:
             return [line.strip() for line in h.readlines()
                     if not line.startswith('Microchip')]
 
-    def _vaccinate(self, animal_id, date_from: str, date_to: str, user_id: str, manufacturer: str,
+    def _vaccinate(self, animal_id, date_from: str, date_to: str, valid_from: str, user_id: str, manufacturer: str,
                    vaccine_name: str, batch_number: str) -> None:
         vaccination = {'vaccineDate': date_from, 'vaccineManufacturer': manufacturer, 'vaccineName': vaccine_name,
-                       'batchNumber': batch_number, 'validFromSelection': 'NOW', 'validUntilSelection': 'VALID1YEAR'}
+                       'batchNumber': batch_number, 'validFromSelection': 'IN21DAYS', 'validUntilSelection': 'VALID1YEAR'}
         last_vaccination = vaccination.copy()
-        last_vaccination['validFrom'] = date_from
+        last_vaccination['validFrom'] = valid_from
         last_vaccination['validUntil'] = date_to
         data = {'id': animal_id, 'userId': user_id, 'changeId': user_id, 'vaccination': vaccination,
                 'lastVaccination': last_vaccination}
